@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  hashedPassword String?
+  age           Int
+  role          UserRole  @default(STUDENT)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  enrollments    Enrollment[]
+  progress       UserProgress[]
+  courses        Course[]   @relation("Instructor")
+}
+
+model Course {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  imageUrl    String?
+  level       Level
+  price       Float
+  duration    Int       // in minutes
+
+  instructor  User      @relation("Instructor", fields: [instructorId], references: [id])
+  instructorId String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isPublished Boolean   @default(false)
+
+  // Relations
+  enrollments Enrollment[]
+  lessons     Lesson[]
+  progress    UserProgress[]
+}
+
+model Lesson {
+  id          String    @id @default(cuid())
+  title       String
+  titleAr     String?   // Arabic title
+  content     String
+  contentAr   String?   // Arabic content
+  videoUrl    String?
+  duration    Int       // in minutes
+  order       Int
+  course      Course    @relation(fields: [courseId], references: [id])
+  courseId    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isPublished Boolean   @default(false)
+
+  // Relations
+  progress    LessonProgress[]
+  exercises   Exercise[]
+  quizzes     Quiz[]
+}
+
+model Enrollment {
+  id          String    @id @default(cuid())
+  userId      String
+  exerciseId  String
+  status      String    @default("IN_PROGRESS")
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id])
+  exercise    Exercise  @relation(fields: [exerciseId], references: [id])
+  lessonProgresses LessonProgress[]
+  course     Course   @relation(fields: [courseId], references: [id])
+  courseId   String
+}
+
+model LessonProgress {
+  id          String    @id @default(cuid())
+  enrollment  Enrollment @relation(fields: [enrollmentId], references: [id])
+  enrollmentId String
+  lesson      Lesson    @relation(fields: [lessonId], references: [id])
+  lessonId    String
+  completed   Boolean   @default(false)
+  lastAccessed DateTime @default(now())
+  score       Float?    // For quizzes or assignments
+  timeSpent   Int?      // Time spent in minutes
+
+  @@unique([enrollmentId, lessonId])
+  @@map("lesson_progress")
+}
+
+model Exercise {
+  id          String    @id @default(cuid())
+  title       String
+  titleAr     String    // Arabic title
+  type        String    @default("DRAG_AND_DROP")
+  content     Json      // Stores blocks and categories
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  progress    UserProgress[]
+  enrollments Enrollment[]
+  lesson     Lesson   @relation(fields: [lessonId], references: [id])
+  lessonId   String
+}
+
+model Quiz {
+  id          String    @id @default(cuid())
+  title       String
+  titleAr     String?   // Arabic title
+  questions   Json      // Stores quiz questions and answers
+  lesson      Lesson    @relation(fields: [lessonId], references: [id])
+  lessonId    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("quizzes")
+}
+
+model UserProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  exerciseId  String
+  score       Int
+  completed   Boolean   @default(false)
+  attempts    Int       @default(0)
+  lastAttempt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id])
+  exercise    Exercise  @relation(fields: [exerciseId], references: [id])
+  course      Course?   @relation(fields: [courseId], references: [id])
+  courseId    String?
+}
+
+enum UserRole {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+enum Level {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum EnrollmentStatus {
+  IN_PROGRESS
+  COMPLETED
+  DROPPED
+}
+
+enum ResourceType {
+  PDF
+  VIDEO
+  LINK
+  QUIZ
+  ASSIGNMENT
+}
+
+enum ExerciseType {
+  DRAG_AND_DROP
+  CODE_EDITOR
+  MULTIPLE_CHOICE
+  FILL_IN_THE_BLANK
+  MATCHING
+} 
